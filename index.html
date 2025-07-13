@@ -27,71 +27,212 @@
     will-change: transform;
     pointer-events: none;
   }
+  #contractionList {
+    margin-top: 1rem;
+    max-height: 120px;
+    overflow-y: auto;
+    width: 280px;
+    background: rgba(20, 40, 60, 0.6);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 1rem;
+  }
+  #recordSummary {
+    margin-top: 1rem;
+    font-size: 1.1rem;
+    color: #a3e4d7;
+  }
+  #breathDisplay {
+    margin-top: 1rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+    min-height: 2rem;
+  }
+  button {
+    font-size: 1.1rem;
+    padding: 0.4rem 1rem;
+    margin: 0.4rem;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    background-color: #3db7e4;
+    color: #002b44;
+    transition: background-color 0.3s ease;
+  }
+  button:disabled {
+    background-color: #006494;
+    cursor: not-allowed;
+  }
+  button:hover:not(:disabled) {
+    background-color: #66c2ff;
+  }
 </style>
 </head>
 <body>
 
 <h1>🐋 One Breath Mode</h1>
 <p>숨을 참았다가 멈추면 자동으로 기록됩니다. 컨트렉션이 올 경우 버튼을 눌러 기록할 수 있어요.</p>
-<button onclick="startBreathHold()">Start One Breath</button>
-<button onclick="stopBreathHold()" disabled id="stopBtn">Stop</button>
-<button onclick="recordContraction()" disabled id="contractBtn">Contraction</button>
+<button id="startBtn">Start One Breath</button>
+<button id="stopBtn" disabled>Stop</button>
+<button id="contractBtn" disabled>Contraction</button>
 <div id="breathDisplay">Ready</div>
+<div id="recordSummary"></div>
+<ul id="contractionList"></ul>
 <canvas id="breathCanvas" width="300" height="300"></canvas>
+
 <script>
-let breathStartTime, breathTimer, contractionTimes = [], breathGoal = 0;
+let breathStartTime = 0;
+let breathTimer = null;
+let contractionTimes = [];
+let breathGoal = 0; // 0이면 무제한
+let progress = 0;
+let animationId = null;
+let phase = 'ready'; // ready, prep, hold, stopped
+
 const breathDisplay = document.getElementById('breathDisplay');
+const recordSummary = document.getElementById('recordSummary');
+const contractionList = document.getElementById('contractionList');
 const canvas = document.getElementById('breathCanvas');
 const ctx = canvas.getContext('2d');
-let progress = 0, lastUpdate = 0;
-let unlimited = true;
 
-function startBreathHold() {
-  breathStartTime = Date.now();
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const contractBtn = document.getElementById('contractBtn');
+
+startBtn.addEventListener('click', startPreparation);
+stopBtn.addEventListener('click', stopBreathHold);
+contractBtn.addEventListener('click', recordContraction);
+
+function startPreparation() {
+  if (phase !== 'ready' && phase !== 'stopped') return;
+  phase = 'prep';
+  breathDisplay.textContent = 'Get Ready... 10';
   contractionTimes = [];
-  document.getElementById('stopBtn').disabled = false;
-  document.getElementById('contractBtn').disabled = false;
-  breathDisplay.textContent = 'Holding breath...';
-  progress = 0;
+  recordSummary.textContent = '';
+  contractionList.innerHTML = '';
+  stopBtn.disabled = true;
+  contractBtn.disabled = true;
+  startBtn.disabled = true;
+  
+  let prepTime = 10;
+  const prepInterval = setInterval(() => {
+    prepTime--;
+    if (prepTime > 0) {
+      breathDisplay.textContent = `Get Ready... ${prepTime}`;
+    } else if (prepTime === 0) {
+      breathDisplay.textContent = '3...';
+    } else if (prepTime === -1) {
+      breathDisplay.textContent = '2...';
+    } else if (prepTime === -2) {
+      breathDisplay.textContent = '1...';
+    } else {
+      clearInterval(prepInterval);
+      startHold();
+      return;
+    }
+    prepTime--;
+  }, 1000);
+}
+
+function startHold() {
+  phase = 'hold';
+  breathStartTime = Date.now();
+  stopBtn.disabled = false;
+  contractBtn.disabled = false;
+  startBtn.disabled = true;
+  breathDisplay.textContent = 'Holding breath... 0s';
   animateBreath();
 }
 
+function animateBreath() {
+  if (phase !== 'hold') {
+    cancelAnimationFrame(animationId);
+    return;
+  }
+  const elapsed = (Date.now() - breathStartTime) / 1000;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // 목표시간 설정 예: 180초, 무제한인 경우 60초 단위로 한바퀴 돌게
+  const oneCircleDuration = breathGoal > 0 ? breathGoal : 60;
+  
+  const circlesPassed = Math.floor(elapsed / oneCircleDuration);
+  const circleProgress = (elapsed % oneCircleDuration) / oneCircleDuration;
+
+  // 색상 변화: 파랑, 보라, 빨강 반복
+  const colors = ['#3db7e4', '#a45db4', '#d42f2f'];
+  const color = colors[circlesPassed % colors.length];
+
+  ctx.beginPath();
+  ctx.arc(150, 150, 120, -Math.PI/2, -Math.PI/2 + circleProgress * 2 * Math.PI);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 10;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 8;
+  ctx.stroke();
+
+  breathDisplay.textContent = `Holding breath... ${Math.floor(elapsed)}s`;
+  
+  animationId = requestAnimationFrame(animateBreath);
+}
+
 function stopBreathHold() {
-  const duration = Math.floor((Date.now() - breathStartTime) / 1000);
-  const emoji = getSeaCreatureEmoji(duration);
-  const size = getEmojiSize(duration);
+  if (phase !== 'hold') return;
+  phase = 'stopped';
+  cancelAnimationFrame(animationId);
+  stopBtn.disabled = true;
+  contractBtn.disabled = true;
+  startBtn.disabled = false;
+
+  const totalSeconds = Math.floor((Date.now() - breathStartTime) / 1000);
+  breathDisplay.textContent = `Held for ${totalSeconds}s`;
+  
+  // 기록 요약
+  let summary = `🕒 Total: ${formatTime(totalSeconds)}<br>`;
+  if (contractionTimes.length > 0) {
+    summary += '🌀 Contractions: ' + contractionTimes.map(s => formatTime(s)).join(', ');
+  } else {
+    summary += '🌀 Contractions: None';
+  }
+  recordSummary.innerHTML = summary;
+
+  // 리스트 초기화
+  contractionList.innerHTML = '';
+
+  // 로컬 저장 - 기록 저장
+  saveRecord(totalSeconds, contractionTimes);
+
+  // 스티커 표시
+  const emoji = getSeaCreatureEmoji(totalSeconds);
+  const size = getEmojiSize(totalSeconds);
   placeSticker(emoji, size);
-  breathDisplay.textContent = `Held for ${duration}s`;
-  document.getElementById('stopBtn').disabled = true;
-  document.getElementById('contractBtn').disabled = true;
 }
 
 function recordContraction() {
+  if (phase !== 'hold') return;
   const now = Date.now();
   const sec = Math.floor((now - breathStartTime) / 1000);
   contractionTimes.push(sec);
-  alert(`Contraction at ${sec}s`);
+  updateContractionList();
 }
 
-function animateBreath(timestamp) {
-  const now = Date.now();
-  const elapsed = (now - breathStartTime) / 1000;
-
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.beginPath();
-  ctx.arc(150, 150, 120, 0, Math.PI * 2 * ((elapsed % 60) / 60));
-  ctx.strokeStyle = getColor(elapsed);
-  ctx.lineWidth = 10;
-  ctx.stroke();
-
-  requestAnimationFrame(animateBreath);
+function updateContractionList() {
+  contractionList.innerHTML = '';
+  contractionTimes.forEach((sec, i) => {
+    const li = document.createElement('li');
+    li.textContent = `🌀 Contraction ${i+1}: ${formatTime(sec)}`;
+    contractionList.appendChild(li);
+  });
 }
 
-function getColor(seconds) {
-  const colors = ['#3db7e4', '#7bd3ff', '#a3e4d7'];
-  return colors[Math.floor((seconds / 60) % colors.length)];
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+// 이모지 크기 및 종류 결정 함수 (기존 코드)
 function getEmojiSize(durationSeconds) {
   if (durationSeconds >= 240) return 3.2;
   if (durationSeconds >= 180) return 2.8;
@@ -118,6 +259,17 @@ function placeSticker(emoji, size) {
   div.style.left = `${Math.random() * 90 + 5}%`;
   div.style.top = `${Math.random() * 80 + 10}%`;
   document.body.appendChild(div);
+}
+
+// 로컬 저장 관련 함수들
+function saveRecord(totalSeconds, contractions) {
+  const logs = JSON.parse(localStorage.getItem('oneBreathLogs') || '[]');
+  logs.push({
+    time: totalSeconds,
+    contractions: contractions,
+    date: new Date().toISOString()
+  });
+  localStorage.setItem('oneBreathLogs', JSON.stringify(logs));
 }
 </script>
 
