@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CO₂ Table Trainer & One Breath</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #002b44;
+    color: #cce7ff;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    position: relative;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  .sticker {
+    position: absolute;
+    user-select: none;
+    transition: transform 0.4s ease;
+    will-change: transform;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<h1>🐋 One Breath Mode</h1>
+<p>숨을 참았다가 멈추면 자동으로 기록됩니다. 컨트렉션이 올 경우 버튼을 눌러 기록할 수 있어요.</p>
+<button onclick="startBreathHold()">Start One Breath</button>
+<button onclick="stopBreathHold()" disabled id="stopBtn">Stop</button>
+<button onclick="recordContraction()" disabled id="contractBtn">Contraction</button>
+<div id="breathDisplay">Ready</div>
+<canvas id="breathCanvas" width="300" height="300"></canvas>
+<script>
+let breathStartTime, breathTimer, contractionTimes = [], breathGoal = 0;
+const breathDisplay = document.getElementById('breathDisplay');
+const canvas = document.getElementById('breathCanvas');
+const ctx = canvas.getContext('2d');
+let progress = 0, lastUpdate = 0;
+let unlimited = true;
+
+function startBreathHold() {
+  breathStartTime = Date.now();
+  contractionTimes = [];
+  document.getElementById('stopBtn').disabled = false;
+  document.getElementById('contractBtn').disabled = false;
+  breathDisplay.textContent = 'Holding breath...';
+  progress = 0;
+  animateBreath();
+}
+
+function stopBreathHold() {
+  const duration = Math.floor((Date.now() - breathStartTime) / 1000);
+  const emoji = getSeaCreatureEmoji(duration);
+  const size = getEmojiSize(duration);
+  placeSticker(emoji, size);
+  breathDisplay.textContent = `Held for ${duration}s`;
+  document.getElementById('stopBtn').disabled = true;
+  document.getElementById('contractBtn').disabled = true;
+}
+
+function recordContraction() {
+  const now = Date.now();
+  const sec = Math.floor((now - breathStartTime) / 1000);
+  contractionTimes.push(sec);
+  alert(`Contraction at ${sec}s`);
+}
+
+function animateBreath(timestamp) {
+  const now = Date.now();
+  const elapsed = (now - breathStartTime) / 1000;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.beginPath();
+  ctx.arc(150, 150, 120, 0, Math.PI * 2 * ((elapsed % 60) / 60));
+  ctx.strokeStyle = getColor(elapsed);
+  ctx.lineWidth = 10;
+  ctx.stroke();
+
+  requestAnimationFrame(animateBreath);
+}
+
+function getColor(seconds) {
+  const colors = ['#3db7e4', '#7bd3ff', '#a3e4d7'];
+  return colors[Math.floor((seconds / 60) % colors.length)];
+}
+
+function getEmojiSize(durationSeconds) {
+  if (durationSeconds >= 240) return 3.2;
+  if (durationSeconds >= 180) return 2.8;
+  if (durationSeconds >= 120) return 2.4;
+  if (durationSeconds >= 90)  return 2.0;
+  if (durationSeconds >= 60)  return 1.6;
+  return 1.2;
+}
+
+function getSeaCreatureEmoji(durationSeconds) {
+  if (durationSeconds >= 240) return "🐋";
+  if (durationSeconds >= 180) return "🐬";
+  if (durationSeconds >= 120) return "🐟";
+  if (durationSeconds >= 90)  return "🐠";
+  if (durationSeconds >= 60)  return "🐚";
+  return "🦐";
+}
+
+function placeSticker(emoji, size) {
+  const div = document.createElement('div');
+  div.className = 'sticker';
+  div.textContent = emoji;
+  div.style.fontSize = `${size}rem`;
+  div.style.left = `${Math.random() * 90 + 5}%`;
+  div.style.top = `${Math.random() * 80 + 10}%`;
+  document.body.appendChild(div);
+}
+</script>
+
+</body>
+</html>
