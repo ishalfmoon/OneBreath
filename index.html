@@ -1,147 +1,43 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CO₂ Table Trainer & One Breath</title>
-<style>
-  body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: #002b44;
-    color: #cce7ff;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    position: relative;
-    box-sizing: border-box;
-    overflow: hidden;
-  }
-  .sticker {
-    position: absolute;
-    user-select: none;
-    transition: transform 0.4s ease;
-    will-change: transform;
-    pointer-events: none;
-  }
-</style>
+  <meta charset="UTF-8">
+  <title>바다속 수면의 빛</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #013;
+      overflow: hidden;
+    }
+
+    .ocean-light {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.3), transparent 70%);
+      mix-blend-mode: screen;
+      animation: wave 8s infinite alternate ease-in-out;
+      filter: url(#wavy);
+    }
+
+    @keyframes wave {
+      0% { transform: translateY(0) scaleX(1); }
+      100% { transform: translateY(-20px) scaleX(1.1); }
+    }
+  </style>
 </head>
 <body>
+  <div class="ocean-light"></div>
 
-<h1>🐋 One Breath Mode</h1>
-<p>숙을 찾았다가 멸출면 자동으로 기록됩니다. 온 중에 백발 수치 건설받을 경우 버튼을 누르어 기록할 수 있어요.</p>
-<button onclick="startBreathHold()">Start One Breath</button>
-<button onclick="stopBreathHold()" disabled id="stopBtn">Stop</button>
-<button onclick="recordContraction()" disabled id="contractBtn">Contraction</button>
-<div id="breathDisplay">Ready</div>
-<canvas id="breathCanvas" width="600" height="600"></canvas>
-<script>
-let breathStartTime, contractionTimes = [], breathGoal = 0;
-let breathActive = false;
-const breathDisplay = document.getElementById('breathDisplay');
-const canvas = document.getElementById('breathCanvas');
-const ctx = canvas.getContext('2d');
-
-function startBreathHold() {
-  breathStartTime = Date.now();
-  contractionTimes = [];
-  document.getElementById('stopBtn').disabled = false;
-  document.getElementById('contractBtn').disabled = false;
-  breathDisplay.textContent = 'Holding breath...';
-  breathActive = true;
-  animateBreath();
-}
-
-function stopBreathHold() {
-  const duration = Math.floor((Date.now() - breathStartTime) / 1000);
-  const emoji = getSeaCreatureEmoji(duration);
-  const size = getEmojiSize(duration);
-  placeSticker(emoji, size);
-  breathDisplay.textContent = `Held for ${duration}s\nContractions: ${contractionTimes.map(s => s + 's').join(', ')}`;
-  document.getElementById('stopBtn').disabled = true;
-  document.getElementById('contractBtn').disabled = true;
-  breathActive = false;
-}
-
-function recordContraction() {
-  const now = Date.now();
-  const sec = Math.floor((now - breathStartTime) / 1000);
-  contractionTimes.push(sec);
-}
-
-function animateBreath() {
-  if (!breathActive) return;
-  const elapsed = (Date.now() - breathStartTime) / 1000;
-
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  const centerX = canvas.width / 2;
-  const centerY = canvas.height / 2;
-  const radius = 200;
-  const angleSpeed = 0.5; // radians per second
-
-  ctx.beginPath();
-  ctx.moveTo(centerX, centerY);
-  for (let t = 0; t < elapsed; t += 0.1) {
-    const angle = t * angleSpeed;
-    const x = centerX + Math.cos(angle) * (radius + Math.sin(t * 2) * 20);
-    const y = centerY + Math.sin(angle) * (radius + Math.sin(t * 2) * 20);
-    ctx.lineTo(x, y);
-  }
-  ctx.strokeStyle = getColor(elapsed);
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  // draw contraction markers
-  contractionTimes.forEach(sec => {
-    const angle = sec * angleSpeed;
-    const x = centerX + Math.cos(angle) * (radius + Math.sin(sec * 2) * 20);
-    const y = centerY + Math.sin(angle) * (radius + Math.sin(sec * 2) * 20);
-    ctx.beginPath();
-    ctx.arc(x, y, 6, 0, Math.PI * 2);
-    ctx.fillStyle = '#ffcc00';
-    ctx.fill();
-  });
-
-  requestAnimationFrame(animateBreath);
-}
-
-function getColor(seconds) {
-  const colors = ['#3db7e4', '#7bd3ff', '#a3e4d7', '#e066ff', '#ff5e5e'];
-  return colors[Math.floor((seconds / 60) % colors.length)];
-}
-
-function getEmojiSize(durationSeconds) {
-  if (durationSeconds >= 240) return 3.2;
-  if (durationSeconds >= 180) return 2.8;
-  if (durationSeconds >= 120) return 2.4;
-  if (durationSeconds >= 90)  return 2.0;
-  if (durationSeconds >= 60)  return 1.6;
-  return 1.2;
-}
-
-function getSeaCreatureEmoji(durationSeconds) {
-  if (durationSeconds >= 240) return "🐋";
-  if (durationSeconds >= 180) return "🐬";
-  if (durationSeconds >= 120) return "🐟";
-  if (durationSeconds >= 90)  return "🐠";
-  if (durationSeconds >= 60)  return "🐚";
-  return "🤐";
-}
-
-function placeSticker(emoji, size) {
-  const div = document.createElement('div');
-  div.className = 'sticker';
-  div.textContent = emoji;
-  div.style.fontSize = `${size}rem`;
-  div.style.left = `${Math.random() * 90 + 5}%`;
-  div.style.top = `${Math.random() * 80 + 10}%`;
-  document.body.appendChild(div);
-}
-</script>
-
+  <!-- SVG filter 정의 -->
+  <svg>
+    <filter id="wavy">
+      <feTurbulence type="turbulence" baseFrequency="0.01 0.02" numOctaves="2" result="turbulence"/>
+      <feDisplacementMap in2="turbulence" in="SourceGraphic" scale="30" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </svg>
 </body>
 </html>
